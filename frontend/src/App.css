@@ -1,0 +1,99 @@
+/* General styling for the entire app */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f9f9f9;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header styling with a logo and Run button */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #2c3e50;
+  padding: 10px 20px;
+  color: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.run-button {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.3s ease;
+}
+
+.run-button:hover {
+  background-color: #c0392b;
+}
+
+/* Editor section */
+.editor-container {
+  margin-top: 20px;
+  border: 2px solid #dcdcdc;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.code-editor {
+  height: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Output section */
+.output-container {
+  margin-top: 30px;
+  padding: 15px;
+  background-color: #ecf0f1;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.output-container h3 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.output {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #fff;
+  border: 1px solid #dcdcdc;
+  padding: 15px;
+  color: #e74c3c;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+  .editor-container, .output-container {
+    width: 100%;
+  }
+
+  .header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .run-button {
+    margin-top: 10px;
+  }
+}
