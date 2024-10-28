@@ -16,11 +16,10 @@ const App = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, input }),
       });
       const result = await response.json();
       setOutput(result.output); // Output or error message
-      setInput(result.input);   // Set the input used for the code execution
       setOutput(result.output); // Output or error message
     } catch (error) {
       setOutput('Failed to run the code.');
@@ -44,21 +43,8 @@ const App = () => {
     setEditor(newEditor);
   }, []);
 
-  const handleInputChange = async (e) => {
-    const newInput = e.target.value;
-    setInput(newInput);
-
-    try {
-      await fetch('http://localhost:5000  /input', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ input: newInput }),
-      });
-    } catch (error) {
-      console.error('Failed to write input to file.');
-    }
+  const handleInputChange = (event) => {
+    setInput(event.target.value);
   };
 
   return (
