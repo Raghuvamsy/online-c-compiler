@@ -10,7 +10,7 @@ const App = () => {
   // Function to send code to the backend and run it when Play button is pressed
   const handleRun = async () => {
     try {
-      const response = await fetch('http://localhost:5000/compile', {
+      const response = await fetch('https://online-c-compiler-r7fe.onrender.com', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
