@@ -9,10 +9,15 @@ CORS(app)
 def compile_code():
     data = request.get_json()
     code = data.get('code', '')
+    input_data = data.get('input', '')
 
     # Write the code to a temporary file
     with open('code.c', 'w') as code_file:
         code_file.write(code)
+
+    # Write the input data to a temporary file
+    with open('input', 'w') as input_file:
+        input_file.write(input_data)
 
     # Compile the C code using gcc and capture the output/errors
     try:
@@ -25,7 +30,13 @@ def compile_code():
             return jsonify({'output': formatted_error})
         else:
             # If compilation is successful, run the code and return output
-            run_result = subprocess.run(['./code'], stdout=subprocess.PIPE, text=True)
+            try:
+                with open('input', 'r') as input_file:
+                    input_data = input_file.read()
+            except FileNotFoundError:
+                # If the input file is not found, run the code without any input
+                input_data = ''
+            run_result = subprocess.run(['./code'], input=input_data, stdout=subprocess.PIPE, text=True)
             return jsonify({'output': run_result.stdout})
     
     except Exception as e:
