@@ -6,6 +6,8 @@ app = Flask(__name__)
 CORS(app)
 
 @app.route('/compile', methods=['POST'])
+def home():
+    return "Welcome to the Compiler API!"
 def compile_code():
     data = request.get_json()
     code = data.get('code', '')
