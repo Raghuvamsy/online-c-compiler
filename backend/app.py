@@ -1,13 +1,17 @@
 import subprocess
+import os
+import platform
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/compile', methods=['POST'])
+@app.route('/')
 def home():
     return "Welcome to the Compiler API!"
+
+@app.route('/compile', methods=['POST'])
 def compile_code():
     data = request.get_json()
     code = data.get('code', '')
@@ -24,14 +28,15 @@ def compile_code():
             # If there is an error, parse the error message
             error_output = result.stderr
             formatted_error = format_error(error_output)
-            return jsonify({'output': formatted_error})
+            return jsonify({'output': formatted_error}), 400  # Return 400 for client error
         else:
             # If compilation is successful, run the code and return output
-            run_result = subprocess.run(['./code'], stdout=subprocess.PIPE, text=True)
-            return jsonify({'output': run_result.stdout})
+            executable = 'code.exe' if platform.system() == 'Windows' else './code'
+            run_result = subprocess.run([executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return jsonify({'output': run_result.stdout or run_result.stderr})
     
     except Exception as e:
-        return jsonify({'output': f"An error occurred: {str(e)}"})
+        return jsonify({'output': f"An error occurred: {str(e)}"}), 500
 
 def format_error(error_output):
     """
@@ -65,4 +70,6 @@ def format_error(error_output):
     return "\n".join(formatted_errors)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Use dynamic port for Render deployment
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
