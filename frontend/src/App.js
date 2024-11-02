@@ -1,26 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import * as monaco from 'monaco-editor';
-import './App.css';  // Import the CSS file for styling
+import './App.css';
 
 const App = () => {
   const [editor, setEditor] = useState(null);
   const [code, setCode] = useState('// Start coding in C\n#include<stdio.h>\nint main() {\n  printf("Hello, World!");\n  return 0;\n}');
   const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);  // New loading state for better UX
 
-  // Function to send code to the backend and run it when Play button is pressed
   const handleRun = async () => {
+    setLoading(true);  // Show loading state when code is running
+    setOutput('');  // Clear previous output
+
     try {
-      const response = await fetch('https://online-c-compiler-r7fe.onrender.com', {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/compile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ code }),
       });
+
       const result = await response.json();
-      setOutput(result.output); // Output or error message
+      if (response.ok) {
+        setOutput(result.output); // Display compiler output
+      } else {
+        setOutput(result.output || 'An error occurred while running the code.');
+      }
     } catch (error) {
-      setOutput('Failed to run the code.');
+      setOutput('Failed to connect to the backend server.');
+    } finally {
+      setLoading(false);  // Stop loading state
     }
   };
 
@@ -32,13 +42,17 @@ const App = () => {
       automaticLayout: true,
     });
 
-    // Update the state when the code in the editor changes
     newEditor.onDidChangeModelContent(() => {
-      const updatedCode = newEditor.getValue();  // Get updated code
-      setCode(updatedCode);                      // Update the state with the new code
+      const updatedCode = newEditor.getValue();
+      setCode(updatedCode);
     });
 
     setEditor(newEditor);
+
+    // Cleanup editor instance on component unmount
+    return () => {
+      if (editor) editor.dispose();
+    };
   }, []);
 
   return (
@@ -47,7 +61,9 @@ const App = () => {
       <div className="editor-container">
         <div id="editor" className="code-editor"></div>
       </div>
-      <button className="run-button" onClick={handleRun}>▶️ Run Code</button>
+      <button className="run-button" onClick={handleRun} disabled={loading}>
+        {loading ? 'Running...' : '▶️ Run Code'}
+      </button>
       <div className="output-container">
         <h3>Output:</h3>
         <pre className="output">{output}</pre>
