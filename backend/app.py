@@ -1,8 +1,10 @@
-import subprocess
 import os
 import platform
+import asyncio
+import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import aiofiles
 
 app = Flask(__name__)
 CORS(app)
@@ -12,29 +14,43 @@ def home():
     return "Welcome to the Compiler API!"
 
 @app.route('/compile', methods=['POST'])
-def compile_code():
+async def compile_code():
     data = request.get_json()
     code = data.get('code', '')
+    user_input = data.get('input', '')
 
     # Write the code to a temporary file
-    with open('code.c', 'w') as code_file:
-        code_file.write(code)
+    async with aiofiles.open('code.c', 'w') as code_file:
+        await code_file.write(code)
 
-    # Compile the C code using gcc and capture the output/errors
+    temp_input_file = 'input.txt'
+    temp_output_file = 'output.txt'
+
+    # Save user input to a file asynchronously
+    async with aiofiles.open(temp_input_file, 'w') as input_file:
+        await input_file.write(user_input)
+
+    # Compile and run the code
     try:
-        result = subprocess.run(['gcc', 'code.c', '-o', 'code'], stderr=subprocess.PIPE, text=True)
-        
-        if result.returncode != 0:
-            # If there is an error, parse the error message
-            error_output = result.stderr
-            formatted_error = format_error(error_output)
-            return jsonify({'output': formatted_error}), 400  # Return 400 for client error
-        else:
-            # If compilation is successful, run the code and return output
-            executable = 'code.exe' if platform.system() == 'Windows' else './code'
-            run_result = subprocess.run([executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            return jsonify({'output': run_result.stdout or run_result.stderr})
-    
+        compile_command = ['gcc', 'code.c', '-o', 'code']
+        compile_process = await asyncio.create_subprocess_exec(*compile_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        stderr, _ = await compile_process.communicate()
+
+        if compile_process.returncode != 0:
+            error_message = stderr.decode()
+            formatted_error = format_error(error_message)
+            return jsonify({'output': formatted_error}), 400
+
+        # Run the executable with user input redirection
+        exec_command = f'./code < {temp_input_file} > {temp_output_file}'
+        exec_process = await asyncio.create_subprocess_shell(exec_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        await exec_process.communicate()
+
+        async with aiofiles.open(temp_output_file, 'r') as output_file:
+            output = await output_file.read()
+
+        return jsonify({'output': output})
+
     except Exception as e:
         return jsonify({'output': f"An error occurred: {str(e)}"}), 500
 
@@ -47,19 +63,12 @@ def format_error(error_output):
     
     for error in errors:
         if 'error:' in error:
-            # Extract the error line and message
             error_line = error.split('error:')[0].strip()
             error_message = error.split('error:')[1].strip()
-            
-            # Extract line number and column from the error
-            # Example: 'code.c:5:3:' means line 5, column 3
             line_info = error_line.split(':')
             line_number = line_info[1]  # Line number (e.g., '5')
-            
-            # Clean up the error message for beginners
             formatted_error = f"Error on Line {line_number}: {error_message}\n"
             
-            # Add a suggestion for missing semicolons
             if 'expected \';\'' in error_message:
                 formatted_error += "Hint: It looks like you're missing a semicolon at the end of the statement.\n"
             
