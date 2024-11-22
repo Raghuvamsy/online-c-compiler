@@ -6,11 +6,12 @@ const App = () => {
   const [editor, setEditor] = useState(null);
   const [code, setCode] = useState('// Start coding in C\n#include<stdio.h>\nint main() {\n  printf("Hello, World!");\n  return 0;\n}');
   const [output, setOutput] = useState('');
-  const [loading, setLoading] = useState(false);  // New loading state for better UX
+  const [loading, setLoading] = useState(false);
+  const [userInput, setUserInput] = useState(''); // New state for user input
 
   const handleRun = async () => {
-    setLoading(true);  // Show loading state when code is running
-    setOutput('');  // Clear previous output
+    setLoading(true);
+    setOutput('');
 
     try {
       const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/compile`, {
@@ -18,19 +19,19 @@ const App = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, input: userInput }), // Send user input along with code
       });
 
       const result = await response.json();
       if (response.ok) {
-        setOutput(result.output); // Display compiler output
+        setOutput(result.output);
       } else {
         setOutput(result.output || 'An error occurred while running the code.');
       }
     } catch (error) {
       setOutput('Failed to connect to the backend server.');
     } finally {
-      setLoading(false);  // Stop loading state
+      setLoading(false);
     }
   };
 
@@ -49,7 +50,6 @@ const App = () => {
 
     setEditor(newEditor);
 
-    // Cleanup editor instance on component unmount
     return () => {
       if (editor) editor.dispose();
     };
@@ -60,6 +60,14 @@ const App = () => {
       <h1 className="app-title">Online C Compiler</h1>
       <div className="editor-container">
         <div id="editor" className="code-editor"></div>
+      </div>
+      <div className="input-container">
+        <textarea
+          placeholder="Enter input for your program"
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)} // Update user input state
+          className="input-box"
+        ></textarea>
       </div>
       <button className="run-button" onClick={handleRun} disabled={loading}>
         {loading ? 'Running...' : '▶️ Run Code'}
