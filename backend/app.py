@@ -17,48 +17,35 @@ def home():
 async def compile_code():
     data = request.get_json()
     code = data.get('code', '')
+    user_input = data.get('input', '')
 
     # Write the code to a temporary file
     async with aiofiles.open('code.c', 'w') as code_file:
         await code_file.write(code)
 
-    # Compile the C code asynchronously
-    try:
-        compile_command = ['gcc', 'code.c', '-o', 'code']
-        compile_process = await asyncio.create_subprocess_exec(
-            *compile_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE
-        )
-        stdout, stderr = await compile_process.communicate()
-
-        if compile_process.returncode != 0:
-            # Compilation error
-            formatted_error = format_error(stderr.decode())
-            return jsonify({'output': formatted_error}), 400
-
-        return jsonify({'output': "Compilation successful!"}), 200
-
-    except Exception as e:
-        return jsonify({'output': f"An error occurred: {str(e)}"}), 500
-
-@app.route('/execute', methods=['POST'])
-async def execute_code():
-    data = request.get_json()
-    user_input = data.get('input', '')  # Fetch input for execution
-
     temp_input_file = 'input.txt'
     temp_output_file = 'output.txt'
 
+    # Save user input to a file asynchronously
+    async with aiofiles.open(temp_input_file, 'w') as input_file:
+        await input_file.write(user_input)
+
+    # Compile and run the code
     try:
-        # Save user input to a file asynchronously
-        async with aiofiles.open(temp_input_file, 'w') as input_file:
-            await input_file.write(user_input)
+        compile_command = ['gcc', 'code.c', '-o', 'code']
+        compile_process = await asyncio.create_subprocess_exec(*compile_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        stderr, _ = await compile_process.communicate()
+
+        if compile_process.returncode != 0:
+            error_message = stderr.decode()
+            formatted_error = format_error(error_message)
+            return jsonify({'output': formatted_error}), 400
 
         # Run the executable with user input redirection
         exec_command = f'./code < {temp_input_file} > {temp_output_file}'
         exec_process = await asyncio.create_subprocess_shell(exec_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         await exec_process.communicate()
 
-        # Read the output of the execution
         async with aiofiles.open(temp_output_file, 'r') as output_file:
             output = await output_file.read()
 
@@ -73,18 +60,18 @@ def format_error(error_output):
     """
     errors = error_output.splitlines()
     formatted_errors = []
-
+    
     for error in errors:
         if 'error:' in error:
             error_line = error.split('error:')[0].strip()
             error_message = error.split('error:')[1].strip()
             line_info = error_line.split(':')
-            line_number = line_info[1] if len(line_info) > 1 else "unknown"  # Handle missing line number gracefully
+            line_number = line_info[1]  # Line number (e.g., '5')
             formatted_error = f"Error on Line {line_number}: {error_message}\n"
-
+            
             if 'expected \';\'' in error_message:
                 formatted_error += "Hint: It looks like you're missing a semicolon at the end of the statement.\n"
-
+            
             formatted_errors.append(formatted_error)
         else:
             formatted_errors.append(error)
