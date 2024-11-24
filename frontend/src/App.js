@@ -7,7 +7,7 @@ const App = () => {
   const [code, setCode] = useState('// Start coding in C\n#include<stdio.h>\nint main() {\n  printf("Hello, World!");\n  return 0;\n}');
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [userInput, setUserInput] = useState(''); // New state for user input
+  const [userInput, setUserInput] = useState(''); // State for user input
 
   const handleRun = async () => {
     setLoading(true);
@@ -19,7 +19,7 @@ const App = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code, input: userInput }), // Send user input along with code
+        body: JSON.stringify({ code, input: userInput }), // Send both code and input
       });
 
       const result = await response.json();
@@ -50,6 +50,7 @@ const App = () => {
 
     setEditor(newEditor);
 
+    // Cleanup editor instance on component unmount
     return () => {
       if (editor) editor.dispose();
     };
@@ -65,7 +66,7 @@ const App = () => {
         <textarea
           placeholder="Enter input for your program"
           value={userInput}
-          onChange={(e) => setUserInput(e.target.value)} // Update user input state
+          onChange={(e) => setUserInput(e.target.value)}
           className="input-box"
         ></textarea>
       </div>
