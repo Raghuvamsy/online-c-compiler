@@ -1,10 +1,8 @@
+import subprocess
 import os
 import platform
-import asyncio
-import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import aiofiles
 
 app = Flask(__name__)
 CORS(app)
@@ -14,65 +12,85 @@ def home():
     return "Welcome to the Compiler API!"
 
 @app.route('/compile', methods=['POST'])
-async def compile_code():
+def compile_code():
     data = request.get_json()
     code = data.get('code', '')
     user_input = data.get('input', '')
 
-    # Write the code to a temporary file
-    async with aiofiles.open('code.c', 'w') as code_file:
-        await code_file.write(code)
+    # Define temporary file names
+    code_file = 'code.c'
+    executable = 'code.exe' if platform.system() == 'Windows' else './code'
+    input_file = 'input.txt'
+    output_file = 'output.txt'
 
-    temp_input_file = 'input.txt'
-    temp_output_file = 'output.txt'
-
-    # Save user input to a file asynchronously
-    async with aiofiles.open(temp_input_file, 'w') as input_file:
-        await input_file.write(user_input)
-
-    # Compile and run the code
     try:
-        compile_command = ['gcc', 'code.c', '-o', 'code']
-        compile_process = await asyncio.create_subprocess_exec(*compile_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        stderr, _ = await compile_process.communicate()
+        # Write the C code to a file
+        with open(code_file, 'w') as cf:
+            cf.write(code)
+
+        # Write user input to a file
+        with open(input_file, 'w') as inf:
+            inf.write(user_input)
+
+        # Compile the C code
+        compile_process = subprocess.run(['gcc', code_file, '-o', 'code'], stderr=subprocess.PIPE, text=True)
 
         if compile_process.returncode != 0:
-            error_message = stderr.decode()
-            formatted_error = format_error(error_message)
+            # Compilation error
+            formatted_error = format_error(compile_process.stderr)
             return jsonify({'output': formatted_error}), 400
 
-        # Run the executable with user input redirection
-        exec_command = f'./code < {temp_input_file} > {temp_output_file}'
-        exec_process = await asyncio.create_subprocess_shell(exec_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        await exec_process.communicate()
+        # Execute the compiled program with user input
+        exec_command = [executable]
+        with open(input_file, 'r') as inf, open(output_file, 'w') as outf:
+            exec_process = subprocess.run(exec_command, stdin=inf, stdout=outf, stderr=subprocess.PIPE, text=True)
 
-        async with aiofiles.open(temp_output_file, 'r') as output_file:
-            output = await output_file.read()
+        if exec_process.returncode != 0:
+            # Runtime error
+            return jsonify({'output': exec_process.stderr}), 400
+
+        # Read the output from the execution
+        with open(output_file, 'r') as outf:
+            output = outf.read()
 
         return jsonify({'output': output})
 
     except Exception as e:
         return jsonify({'output': f"An error occurred: {str(e)}"}), 500
 
+    finally:
+        # Clean up temporary files
+        for file in [code_file, 'code', input_file, output_file]:
+            if os.path.exists(file):
+                os.remove(file)
+
 def format_error(error_output):
     """
-    This function formats the GCC error messages to be more beginner-friendly.
+    Formats GCC error messages to be more beginner-friendly.
     """
     errors = error_output.splitlines()
     formatted_errors = []
-    
+
     for error in errors:
         if 'error:' in error:
-            error_line = error.split('error:')[0].strip()
-            error_message = error.split('error:')[1].strip()
-            line_info = error_line.split(':')
-            line_number = line_info[1]  # Line number (e.g., '5')
-            formatted_error = f"Error on Line {line_number}: {error_message}\n"
-            
-            if 'expected \';\'' in error_message:
-                formatted_error += "Hint: It looks like you're missing a semicolon at the end of the statement.\n"
-            
-            formatted_errors.append(formatted_error)
+            parts = error.split('error:')
+            if len(parts) > 1:
+                location = parts[0].strip()
+                message = parts[1].strip()
+
+                # Extract line number
+                location_parts = location.split(':')
+                line_number = location_parts[1] if len(location_parts) > 1 else "unknown"
+
+                formatted_error = f"Error on Line {line_number}: {message}\n"
+
+                # Add specific hints
+                if "expected ';'" in message:
+                    formatted_error += "Hint: It looks like you're missing a semicolon at the end of the statement.\n"
+
+                formatted_errors.append(formatted_error)
+            else:
+                formatted_errors.append(error)
         else:
             formatted_errors.append(error)
 
