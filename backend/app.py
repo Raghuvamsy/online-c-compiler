@@ -15,48 +15,38 @@ def home():
 def compile_code():
     data = request.get_json()
     code = data.get('code', '')
-    user_input = data.get('input', '')
 
-    # Define temporary file names
-    code_file = 'code.c'
-    executable = 'code.exe' if platform.system() == 'Windows' else './code'
-    input_file = 'input.txt'
-    output_file = 'output.txt'
+    # Save the code to a file
+    with open('code.c', 'w') as code_file:
+        code_file.write(code)
 
     try:
-        # Write the C code to a file
-        with open(code_file, 'w') as cf:
-            cf.write(code)
+        # Compile the C program
+        compile_result = subprocess.run(['gcc', 'code.c', '-o', 'code'], stderr=subprocess.PIPE, text=True)
+        if compile_result.returncode != 0:
+            return jsonify({'output': compile_result.stderr}), 400  # Compilation error
 
-        # Write user input to a file
-        with open(input_file, 'w') as inf:
-            inf.write(user_input)
+        # Run the compiled program and pass input dynamically
+        executable = 'code.exe' if platform.system() == 'Windows' else './code'
+        process = subprocess.Popen(
+            executable,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
 
-        # Compile the C code
-        compile_process = subprocess.run(['gcc', code_file, '-o', 'code'], stderr=subprocess.PIPE, text=True)
+        # Get user input and send to the executable
+        user_input = data.get('input', '')  # Dynamically fetch user input
+        output, errors = process.communicate(input=user_input)
 
-        if compile_process.returncode != 0:
-            # Compilation error
-            formatted_error = format_error(compile_process.stderr)
-            return jsonify({'output': formatted_error}), 400
-
-        # Execute the compiled program with user input
-        exec_command = [executable]
-        with open(input_file, 'r') as inf, open(output_file, 'w') as outf:
-            exec_process = subprocess.run(exec_command, stdin=inf, stdout=outf, stderr=subprocess.PIPE, text=True)
-
-        if exec_process.returncode != 0:
-            # Runtime error
-            return jsonify({'output': exec_process.stderr}), 400
-
-        # Read the output from the execution
-        with open(output_file, 'r') as outf:
-            output = outf.read()
+        if process.returncode != 0:
+            return jsonify({'output': errors or 'Runtime error occurred.'}), 400  # Runtime error
 
         return jsonify({'output': output})
 
     except Exception as e:
-        return jsonify({'output': f"An error occurred: {str(e)}"}), 500
+        return jsonify({'output': f"Server error: {str(e)}"}), 500
 
     finally:
         # Clean up temporary files
