@@ -48,45 +48,6 @@ def compile_code():
     except Exception as e:
         return jsonify({'output': f"Server error: {str(e)}"}), 500
 
-    finally:
-        # Clean up temporary files
-        for file in [code_file, 'code', input_file, output_file]:
-            if os.path.exists(file):
-                os.remove(file)
-
-def format_error(error_output):
-    """
-    Formats GCC error messages to be more beginner-friendly.
-    """
-    errors = error_output.splitlines()
-    formatted_errors = []
-
-    for error in errors:
-        if 'error:' in error:
-            parts = error.split('error:')
-            if len(parts) > 1:
-                location = parts[0].strip()
-                message = parts[1].strip()
-
-                # Extract line number
-                location_parts = location.split(':')
-                line_number = location_parts[1] if len(location_parts) > 1 else "unknown"
-
-                formatted_error = f"Error on Line {line_number}: {message}\n"
-
-                # Add specific hints
-                if "expected ';'" in message:
-                    formatted_error += "Hint: It looks like you're missing a semicolon at the end of the statement.\n"
-
-                formatted_errors.append(formatted_error)
-            else:
-                formatted_errors.append(error)
-        else:
-            formatted_errors.append(error)
-
-    return "\n".join(formatted_errors)
-
 if __name__ == '__main__':
-    # Use dynamic port for Render deployment
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
