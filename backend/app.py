@@ -17,7 +17,6 @@ def home():
 async def compile_code():
     data = request.get_json()
     code = data.get('code', '')
-    user_input = data.get('input', '')
 
     # Write the code to a temporary file
     async with aiofiles.open('code.c', 'w') as code_file:
@@ -26,12 +25,8 @@ async def compile_code():
     temp_input_file = 'input.txt'
     temp_output_file = 'output.txt'
 
-    # Save user input to a file asynchronously
-    async with aiofiles.open(temp_input_file, 'w') as input_file:
-        await input_file.write(user_input)
-
-    # Compile and run the code
     try:
+        # Compile the code
         compile_command = ['gcc', 'code.c', '-o', 'code']
         compile_process = await asyncio.create_subprocess_exec(*compile_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         stderr, _ = await compile_process.communicate()
@@ -39,12 +34,41 @@ async def compile_code():
         if compile_process.returncode != 0:
             error_message = stderr.decode()
             formatted_error = format_error(error_message)
-            return jsonify({'output': formatted_error}), 400
+            return jsonify({'output': formatted_error, 'needs_input': False}), 400
 
-        # Run the executable with user input redirection
-        exec_command = f'./code < {temp_input_file} > {temp_output_file}'
-        exec_process = await asyncio.create_subprocess_shell(exec_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        await exec_process.communicate()
+        # Run the code and wait for input
+        exec_command = './code'
+        exec_process = await asyncio.create_subprocess_exec(exec_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = await exec_process.communicate()
+
+        # If the program waits for input
+        if exec_process.returncode == 0 and not stdout.strip():
+            return jsonify({'output': 'Input required. Enter your input:', 'needs_input': True})
+
+        # Return the output if execution completes
+        output = stdout.decode() if stdout else stderr.decode()
+        return jsonify({'output': output, 'needs_input': False})
+
+    except Exception as e:
+        return jsonify({'output': f"An error occurred: {str(e)}", 'needs_input': False}), 500
+
+
+@app.route('/provide-input', methods=['POST'])
+async def provide_input():
+    data = request.get_json()
+    user_input = data.get('input', '')
+
+    # Save user input to a file asynchronously
+    temp_input_file = 'input.txt'
+    async with aiofiles.open(temp_input_file, 'w') as input_file:
+        await input_file.write(user_input)
+
+    temp_output_file = 'output.txt'
+    exec_command_with_input = f'./code < {temp_input_file} > {temp_output_file}'
+
+    try:
+        exec_process_with_input = await asyncio.create_subprocess_shell(exec_command_with_input, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        await exec_process_with_input.communicate()
 
         async with aiofiles.open(temp_output_file, 'r') as output_file:
             output = await output_file.read()
