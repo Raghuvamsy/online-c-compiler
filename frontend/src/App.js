@@ -7,27 +7,24 @@ const App = () => {
   const [code, setCode] = useState('// Start coding in C\n#include<stdio.h>\nint main() {\n  printf("Hello, World!");\n  return 0;\n}');
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [userInput, setUserInput] = useState('');
-  const [needsInput, setNeedsInput] = useState(false); // State to check if input is needed
+  const [userInput, setUserInput] = useState(''); // State for user input
 
   const handleRun = async () => {
     setLoading(true);
     setOutput('');
-    setNeedsInput(false); // Reset input requirement
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/compile`, {
+      const response = await fetch(${process.env.REACT_APP_BACKEND_URL}/compile, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code, input: userInput }),
+        body: JSON.stringify({ code, input: userInput }), // Send both code and input
       });
 
       const result = await response.json();
       if (response.ok) {
         setOutput(result.output);
-        setNeedsInput(result.needs_input); // Check if backend requires input after running
       } else {
         setOutput(result.output || 'An error occurred while running the code.');
       }
@@ -66,14 +63,12 @@ const App = () => {
         <div id="editor" className="code-editor"></div>
       </div>
       <div className="input-container">
-        {needsInput && (
-          <textarea
-            placeholder="Enter input for your program"
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            className="input-box"
-          ></textarea>
-        )}
+        <textarea
+          placeholder="Enter input for your program"
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
+          className="input-box"
+        ></textarea>
       </div>
       <button className="run-button" onClick={handleRun} disabled={loading}>
         {loading ? 'Running...' : '▶️ Run Code'}
